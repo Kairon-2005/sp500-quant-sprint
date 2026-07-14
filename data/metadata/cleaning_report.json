@@ -1,0 +1,26 @@
+{
+  "generated_utc": "2026-07-14T17:45:04.443608+00:00",
+  "tickers_in": 504,
+  "tickers_kept": 502,
+  "tickers_dropped": [
+    "FDXF",
+    "HONA"
+  ],
+  "rows_raw": 1230909,
+  "rows_clean": 1228037,
+  "leading_placeholder_rows_trimmed": 2820,
+  "interior_halt_rows_masked": 20,
+  "gap_rows_forward_filled": 21,
+  "ohlc_order_fixes": 23,
+  "nonpositive_price_fixes": 0,
+  "extreme_moves_flagged": 560,
+  "suspect_reversal_flagged": 54,
+  "value_edits_logged": 23,
+  "outputs": {
+    "clean_panel": "data/processed/sp500_clean_panel.parquet",
+    "wide_adj_close": "data/processed/adj_close_clean.parquet",
+    "per_ticker_dir": "data/interim/clean/",
+    "adjustments_log": "data/metadata/cleaning_adjustments.csv",
+    "stats": "data/metadata/cleaning_stats.csv"
+  }
+}

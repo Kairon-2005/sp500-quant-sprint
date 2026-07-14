@@ -1,0 +1,63 @@
+# =====================================================================
+# JPM Quant Sprint — configuration
+# Week 1: data acquisition, cleaning, technical indicators
+# =====================================================================
+
+project:
+  name: jpm-quant-sprint
+  timezone: America/New_York
+
+universe:
+  # S&P 500 constituents source. "wikipedia" scrapes the current list.
+  # NOTE: current constituents => survivorship bias for a 10y backtest.
+  #       See data/metadata/README for the point-in-time caveat.
+  source: wikipedia
+  cache: data/metadata/sp500_constituents.csv
+  # Always include these index/benchmark tickers alongside constituents.
+  extra_tickers:
+    - "^GSPC"   # S&P 500 index (benchmark)
+
+data:
+  start_date: "2016-07-09"   # ~10 years back
+  end_date: null              # null => today (resolved at runtime)
+  interval: "1d"              # daily frequency
+  # auto_adjust=false keeps RAW (unadjusted) OHLC as open/high/low/close AND a
+  # separate adj_close (split+dividend adjusted) plus dividend/split actions.
+  # Use raw close for traded price/fills; adj_close for returns & indicators.
+  auto_adjust: false
+  source: yfinance            # primary source: yfinance | stooq
+  fallback_source: stooq      # used per-ticker when primary fails
+
+download:
+  batch_size: 40              # tickers per yfinance batch request
+  max_retries: 4
+  pause_between_batches: 1.5  # seconds (be polite; avoid 429)
+  pause_between_retries: 5.0
+  timeout: 30
+
+cleaning:
+  max_ffill_days: 5           # forward-fill price across at most N-day gaps (short halts)
+  sustained_window: 21        # a series "really trades" once N forward bars are all real
+  winsor_mad_k: 3             # winsorise return feature at median +/- k*robust-MAD
+
+storage:
+  format: parquet
+  compression: zstd
+  # per-ticker files under raw/, plus a consolidated long-format panel.
+  panel_file: data/processed/sp500_ohlcv_panel.parquet
+
+integrity:
+  max_daily_return: 0.20      # flag |close-to-close return| > 20%
+  min_coverage: 0.90          # flag tickers with < 90% of expected trading days
+  max_gap_trading_days: 5     # flag internal gaps longer than N trading days
+  min_price: 0.01             # flag non-positive / sub-penny prices
+  min_real_row_ratio: 0.80    # fail if >20% of rows are flat placeholder (fabricated) data
+  min_history_days: 60        # fail if fewer real trading days than this (too short for indicators)
+  report: data/metadata/integrity_report.json
+
+paths:
+  raw: data/raw
+  interim: data/interim
+  processed: data/processed
+  metadata: data/metadata
+  logs: logs

@@ -1,0 +1,21 @@
+[project]
+name = "jpm-quant-sprint"
+version = "0.1.0"
+description = "Quant sprint: S&P 500 data acquisition, cleaning, indicators & analysis"
+requires-python = ">=3.11"
+readme = "README.md"
+
+[tool.pytest.ini_options]
+# Put the repo root on sys.path so tests can `import src...` without hacks.
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# E501: line length handled by formatter. E741: `o,h,l,c` is idiomatic for OHLC.
+ignore = ["E501", "E741"]
