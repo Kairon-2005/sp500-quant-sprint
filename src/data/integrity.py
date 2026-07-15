@@ -121,6 +121,18 @@ def check_ticker(df: pd.DataFrame, ref_cal: pd.DatetimeIndex, cfg) -> dict:
     rec["max_abs_return"] = round(float(ret.abs().max(skipna=True) or 0.0), 4)
     rec["n_extreme_return"] = int((ret.abs() > ic["max_daily_return"]).sum())
 
+    # ---- lifecycle: separate delisted / suspended / short-history / active ----
+    sessions_after = int((ref_cal > last).sum()) if len(ref_cal) else 0
+    stale_days = ic.get("delisted_stale_days", 10)
+    if rec["real_rows"] < ic.get("min_history_days", 60):
+        rec["lifecycle"] = "short_history"
+    elif sessions_after > stale_days:            # data stops well before market end
+        rec["lifecycle"] = "delisted"
+    elif rec["max_internal_gap"] > ic.get("suspended_gap_days", 10):
+        rec["lifecycle"] = "suspended"           # long halt but resumes
+    else:
+        rec["lifecycle"] = "active"
+
     # ---- classify ----
     flags: list[str] = []
     if rec["coverage"] < ic["min_coverage"]:
@@ -192,6 +204,7 @@ def run_integrity(cfg) -> pd.DataFrame:
 
     # ---- aggregate summary ----
     status_counts = report_df["status"].value_counts().to_dict()
+    lifecycle_counts = report_df["lifecycle"].value_counts().to_dict()
     all_flags: dict[str, int] = {}
     for flist in report_df["flags"]:
         for fl in flist:
@@ -200,6 +213,7 @@ def run_integrity(cfg) -> pd.DataFrame:
     summary = {
         "generated_utc": pd.Timestamp.now("UTC").isoformat(),
         "n_tickers": int(len(report_df)),
+        "lifecycle_counts": {k: int(v) for k, v in lifecycle_counts.items()},
         "reference_calendar": {
             "n_trading_days": int(len(ref_cal)),
             "start": str(ref_cal.min().date()) if len(ref_cal) else None,
@@ -218,6 +232,7 @@ def run_integrity(cfg) -> pd.DataFrame:
         json.dump(summary, fh, indent=2, default=str)
 
     log.info("Integrity: %s", summary["status_counts"])
+    log.info("Lifecycle: %s", summary["lifecycle_counts"])
     log.info("Flags: %s", all_flags)
     log.info("Report -> %s | per-ticker -> %s", report_path, per_ticker_csv)
     return report_df

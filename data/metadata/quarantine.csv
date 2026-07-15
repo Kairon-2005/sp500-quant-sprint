@@ -1,0 +1,4 @@
+ticker,raw_rows,reason
+FDXF,33,real history < 60 days
+HONA,20,real history < 60 days
+NFX,6,real history < 60 days

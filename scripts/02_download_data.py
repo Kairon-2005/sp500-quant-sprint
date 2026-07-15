@@ -6,7 +6,7 @@ import _bootstrap  # noqa: F401
 
 from src.config import load_config
 from src.data.download import download_ohlcv
-from src.data.universe import get_ticker_list
+from src.data.membership import download_universe
 
 
 def main() -> None:
@@ -18,7 +18,7 @@ def main() -> None:
     args = ap.parse_args()
 
     cfg = load_config()
-    tickers = args.tickers or get_ticker_list(cfg)
+    tickers = args.tickers or download_universe(cfg)
     if args.limit:
         tickers = tickers[: args.limit]
 

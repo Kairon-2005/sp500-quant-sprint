@@ -41,14 +41,16 @@ python3 -m venv .venv
 ## Run the Week-1 pipeline
 
 ```bash
-.venv/bin/python scripts/01_fetch_universe.py        # cache S&P 500 members
-.venv/bin/python scripts/02_download_data.py         # 10y daily OHLCV (resumable)
+.venv/bin/python scripts/01_fetch_universe.py        # cache current S&P 500 members
+.venv/bin/python scripts/09_membership.py            # point-in-time membership + delisted names (survivorship fix)
+.venv/bin/python scripts/02_download_data.py         # 10y daily OHLCV, survivorship-free universe (resumable)
 .venv/bin/python scripts/03_check_integrity.py       # integrity report
 .venv/bin/python scripts/04_build_panel.py           # consolidated raw panel + adj-close matrix
 .venv/bin/python scripts/05_clean_data.py            # Week 1.2: clean (missing/outliers/standardise)
 .venv/bin/python scripts/06_indicators.py            # Week 1.3: MA/EMA/MACD/RSI/Bollinger/ATR
 .venv/bin/python scripts/07_signal_analysis.py       # Week 1.3: IC + RSI overbought/oversold
 .venv/bin/python scripts/08_visualize.py --ticker AAPL   # Week 1.3: charts -> reports/figures/
+.venv/bin/python scripts/10_reconcile.py --sample 60     # cross-source validation (needs a reachable 2nd feed)
 ```
 
 `02` is **resumable**: re-running skips tickers already saved in `data/raw/`.
@@ -68,10 +70,17 @@ or `--tickers AAPL MSFT ...` for a subset.
 * **Storage = Parquet + zstd.** Columnar & compressed: the full S&P 500 × 10y
   panel is ~tens of MB vs. hundreds as CSV. Per-ticker files make the download
   resumable and allow re-fetching one name without rewriting everything.
-* **Survivorship bias.** The universe is *today's* constituents (Wikipedia),
-  so a 10-year backtest over-represents survivors. Acceptable for a learning
-  sprint if acknowledged; a point-in-time membership dataset is needed to
-  remove the bias. See `data/metadata/`.
+* **Survivorship bias — mitigated.** `membership.py` reconstructs *point-in-time*
+  index membership from Wikipedia's changes table, so the universe includes names
+  removed/delisted during the window (503 → ~699 tickers). ~107 delisted names are
+  recoverable from Yahoo; ~89 acquired/gone ones are not (a free-source limit,
+  reported in the manifest). This is a documented approximation — CRSP/Norgate give
+  authoritative point-in-time data. Each ticker is tagged `active` / `delisted` /
+  `suspended` / `short_history` (`lifecycle` in the integrity report).
+* **Cross-source reconciliation.** `reconcile.py` compares Yahoo vs a second feed's
+  raw close per ticker and flags mismatches (persistent disagreement ⇒ ticker reuse,
+  e.g. SATS→ECHO). The engine is unit-tested; running it live needs a reachable
+  second feed (Stooq is currently behind a bot-check — not bypassed).
 
 ## Integrity checks (`03`)
 

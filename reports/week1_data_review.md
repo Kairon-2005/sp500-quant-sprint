@@ -76,7 +76,7 @@ adjustment. *Fix:* re-download with `auto_adjust=False` and store BOTH raw OHLC 
 (plus the `actions`/dividends+splits frame), or at minimum store the raw close alongside adjusted.
 Correct the README/config to match reality now, regardless.
 
-**C3. Week-1.2 as specified ("修正异常值 / correct >20% moves") will destroy real signal.**
+**C3. Week-1.2 as specified ("correct outliers / >20% moves") will destroy real signal.**
 See the dedicated cleaning section below — this is the single biggest risk in the whole week and
 it hasn't been built yet, so it's the cheapest to fix.
 
@@ -169,7 +169,7 @@ the ones that hurt a quant pipeline most.
 
 ## Recommendations for the cleaning step (Week 1.2) — MOST IMPORTANT
 
-The spec says "识别并修正异常值（如单日涨跌幅超过20%）" — *detect and correct* >20% daily moves. **Do not
+The spec says to *detect and correct* >20% daily moves. **Do not
 implement that literally.** Verified reality of this dataset: `max_abs_return` has a median of
 **0.19** and mean **0.21** across 504 names — i.e. a ~20% single-day move is the *typical annual
 extreme*, not an anomaly. CVNA has 34 such days, PCG's max is +75% (post-bankruptcy), SMCI 20

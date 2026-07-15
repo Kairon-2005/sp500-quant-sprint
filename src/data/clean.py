@@ -19,9 +19,9 @@ Design philosophy (informed by the Week-1 review, reports/week1_data_review.md):
   delisting or before the first real bar (avoids look-ahead / fabricated quotes).
 
 The three spec sub-tasks map to:
-    1. 缺失值 (missing)      -> _trim_leading_placeholder, _align_calendar
-    2. 异常值 (outliers)     -> _fix_mechanical (correct), _flag_outliers (flag+winsorise)
-    3. 标准化 (standardise)  -> _standardise_types
+    1. missing values -> _trim_leading_placeholder, _align_calendar
+    2. outliers       -> _fix_mechanical (correct), _flag_outliers (flag+winsorise)
+    3. standardise    -> _standardise_types
 """
 from __future__ import annotations
 
@@ -49,6 +49,7 @@ class CleanStats:
     nonpos_fixed: int = 0
     n_extreme: int = 0
     n_suspect: int = 0
+    orig_first_date: str = ""
     first_real_date: str = ""
     dropped: bool = False
     reason: str = ""
@@ -97,6 +98,8 @@ def _first_sustained_date(df: pd.DataFrame, window: int = 21):
 
 def _trim_leading_placeholder(df: pd.DataFrame, stats: CleanStats,
                               window: int = 21) -> pd.DataFrame:
+    if len(df):
+        stats.orig_first_date = str(pd.Timestamp(df["date"].min()).date())
     start = _first_sustained_date(df, window)
     if start is None:
         stats.dropped = True
@@ -292,9 +295,20 @@ def clean_all(cfg) -> pd.DataFrame:
     processed.write(wide, "adj_close_clean", index=True)
 
     stats = pd.DataFrame(stats_rows)
-    stats.to_csv(cfg.path("metadata") / "cleaning_stats.csv", index=False)
+    meta = cfg.path("metadata")
+    stats.to_csv(meta / "cleaning_stats.csv", index=False)
     adj_log = pd.DataFrame(log_rows)
-    adj_log.to_csv(cfg.path("metadata") / "cleaning_adjustments.csv", index=False)
+    adj_log.to_csv(meta / "cleaning_adjustments.csv", index=False)
+
+    # (#4) Pre-listing invalid segments — split out for separate analysis, not
+    # silently dropped: which tickers had leading placeholder history and how much.
+    pre = stats[stats["leading_trimmed"] > 0][
+        ["ticker", "orig_first_date", "first_real_date", "leading_trimmed", "raw_rows"]]
+    pre.sort_values("leading_trimmed", ascending=False).to_csv(
+        meta / "prelisting_trimmed.csv", index=False)
+    # (#3) Quarantine — tickers auto-filtered out by the min-history rule.
+    stats[stats["dropped"]][["ticker", "raw_rows", "reason"]].to_csv(
+        meta / "quarantine.csv", index=False)
 
     report = {
         "generated_utc": pd.Timestamp.now("UTC").isoformat(),

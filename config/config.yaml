@@ -9,10 +9,12 @@ project:
 
 universe:
   # S&P 500 constituents source. "wikipedia" scrapes the current list.
-  # NOTE: current constituents => survivorship bias for a 10y backtest.
-  #       See data/metadata/README for the point-in-time caveat.
   source: wikipedia
   cache: data/metadata/sp500_constituents.csv
+  # survivorship_free: also include names removed/delisted during the window,
+  # reconstructed point-in-time from Wikipedia's changes table (see membership.py).
+  # This is the fix for survivorship bias; it grows the universe ~503 -> ~700.
+  survivorship_free: true
   # Always include these index/benchmark tickers alongside constituents.
   extra_tickers:
     - "^GSPC"   # S&P 500 index (benchmark)
@@ -53,6 +55,8 @@ integrity:
   min_price: 0.01             # flag non-positive / sub-penny prices
   min_real_row_ratio: 0.80    # fail if >20% of rows are flat placeholder (fabricated) data
   min_history_days: 60        # fail if fewer real trading days than this (too short for indicators)
+  delisted_stale_days: 10     # lifecycle=delisted if data ends >N sessions before market end
+  suspended_gap_days: 10      # lifecycle=suspended if longest internal gap exceeds N sessions
   report: data/metadata/integrity_report.json
 
 paths:

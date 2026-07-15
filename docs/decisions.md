@@ -99,3 +99,37 @@ last trade, so open/close can momentarily exceed them — this showed up as ~22
 tiny `ohlc_order_fix` edits all dated the run day. The cleaner clamps and logs
 them harmlessly. A stricter pipeline would drop any incomplete session; deferred
 (needs market-close awareness). Re-running after the close removes them.
+
+## Mentor-feedback round (survivorship, lifecycle, reconciliation)
+
+**D16. Point-in-time membership from Wikipedia's changes table (survivorship fix).**
+`membership.py` reconstructs historical index membership by walking backwards from
+today's members and reversing each add/remove event. Gives a survivorship-free
+universe (503 -> 699) and recovers delisted names. *Honest limit:* Wikipedia is
+not point-in-time authoritative (CRSP/Norgate are); dates/renames can be imperfect.
+It's a free, documented approximation — far better than "today's snapshot only".
+
+**D17. Delisted-from-index ≠ delisted-from-market.** Of ~196 removed names, ~107
+are fetchable from Yahoo and only ~10 actually stopped trading (`lifecycle=delisted`);
+most removals are market-cap demotions where the company still trades. The other
+~89 (acquired/gone) are absent from Yahoo entirely — a hard limit of the free source,
+reported in the download manifest, not silently hidden.
+
+**D18. Lifecycle classification** (`integrity.py`): every ticker tagged
+active / delisted (data stops >N sessions before market end) / suspended (long
+internal gap but resumes) / short_history — so long-dead and long-halted names are
+separated, not lumped with active ones.
+
+**D19. Pre-listing invalid data is split out, not silently trimmed.** Cleaning
+still truncates fabricated leading rows, but now writes `prelisting_trimmed.csv`
+(ticker, original vs first-real date, rows trimmed) and a `quarantine.csv` of names
+auto-filtered by the min-history rule — so the removals are auditable.
+
+**D20. Reconciliation is a real comparison engine, but the free second feed is gated.**
+`reconcile.py` compares two vendors' raw close per ticker and flags mismatch
+(persistent price disagreement => ticker reuse) / warn / ok. The engine is
+unit-tested on synthetic data. *Live limit:* Stooq now sits behind a JavaScript
+proof-of-work bot-check (and `pandas_datareader` dropped Stooq), so it can't be hit
+from a plain request — and we do **not** bypass bot detection. To run it live, use a
+network where Stooq is reachable or plug a keyed feed (e.g. Tiingo) into the same
+`PriceSource` interface. Framework done; live execution needs a reachable source.

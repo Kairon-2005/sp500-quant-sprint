@@ -91,21 +91,80 @@ class YahooSource(PriceSource):
 
 
 class StooqSource(PriceSource):
-    """Stooq fallback via pandas_datareader (unadjusted EOD; adj_close := close)."""
+    """Stooq fallback via its direct CSV endpoint (unadjusted EOD; adj_close :=
+    close). pandas_datareader dropped Stooq support, so we hit the CSV API."""
     name = "stooq"
+    BASE = "https://stooq.com/q/d/l/"
 
     def fetch(self, tickers, start, end, *, interval, auto_adjust):
-        from pandas_datareader import data as pdr
+        import io
+        import time
+
+        import requests
+        d1, d2 = pd.Timestamp(start).strftime("%Y%m%d"), pd.Timestamp(end).strftime("%Y%m%d")
         out: dict[str, pd.DataFrame] = {}
         for t in tickers:
             frame = pd.DataFrame(columns=STD_COLS)
-            for sym in (f"{t}.US", t, f"{t.replace('-', '.')}.US"):
+            for sym in (f"{t}.US", f"{t.replace('-', '.')}.US"):
                 try:
-                    df = pdr.DataReader(sym, "stooq", start=start, end=end)
-                    if df is not None and not df.empty:
-                        frame = standardise(df, t, self.name)
-                        break
+                    url = f"{self.BASE}?s={sym.lower()}&d1={d1}&d2={d2}&i=d"
+                    r = requests.get(url, timeout=30, headers=_HEADERS)
+                    txt = r.text.strip()
+                    if r.ok and txt and not txt.startswith("<") and "Close" in txt[:200]:
+                        df = pd.read_csv(io.StringIO(txt))
+                        if not df.empty and "Close" in df.columns:
+                            frame = standardise(df, t, self.name)
+                            break
                 except Exception:
                     continue
             out[t] = frame
+            time.sleep(0.15)  # be polite to the free endpoint
         return out
+
+
+_HEADERS = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
+
+
+class TiingoSource(PriceSource):
+    """Independent EOD source via Tiingo's free API. Reads the token from the
+    ``TIINGO_API_KEY`` env var (or the constructor); returns empty frames if no
+    key is set, so reconciliation degrades gracefully. Tiingo returns both raw
+    and adjusted fields, so raw-close reconciliation is apples-to-apples.
+
+    NOTE: written to Tiingo's documented endpoint but not exercised in this
+    environment (no key here); validate with a real token.
+    """
+    name = "tiingo"
+    BASE = "https://api.tiingo.com/tiingo/daily"
+
+    def __init__(self, api_key: str | None = None):
+        import os
+        self.api_key = api_key or os.environ.get("TIINGO_API_KEY")
+
+    def fetch(self, tickers, start, end, *, interval, auto_adjust):
+        import requests
+        out: dict[str, pd.DataFrame] = {}
+        for t in tickers:
+            frame = pd.DataFrame(columns=STD_COLS)
+            if self.api_key:
+                try:
+                    r = requests.get(
+                        f"{self.BASE}/{t.lower()}/prices",
+                        params={"startDate": str(start), "endDate": str(end),
+                                "token": self.api_key, "format": "json"},
+                        timeout=30)
+                    rows = r.json() if r.ok else []
+                    if isinstance(rows, list) and rows:
+                        df = pd.DataFrame(rows).rename(columns={"adjClose": "adj_close"})
+                        frame = standardise(df, t, self.name)
+                except Exception:
+                    pass
+            out[t] = frame
+        return out
+
+
+def alt_source() -> PriceSource:
+    """The reconciliation source: Tiingo if a key is configured, else Stooq."""
+    tiingo = TiingoSource()
+    return tiingo if tiingo.api_key else StooqSource()
