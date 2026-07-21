@@ -51,6 +51,8 @@ python3 -m venv .venv
 .venv/bin/python scripts/07_signal_analysis.py       # Week 1.3: IC + RSI overbought/oversold
 .venv/bin/python scripts/08_visualize.py --ticker AAPL   # Week 1.3: charts -> reports/figures/
 .venv/bin/python scripts/10_reconcile.py --sample 60     # cross-source validation (needs a reachable 2nd feed)
+.venv/bin/python scripts/11_build_features.py            # Week 2: lag/macro feature matrix + labels
+.venv/bin/python scripts/12_reduce_features.py           # Week 2: correlation prune + PCA + t-SNE
 ```
 
 `02` is **resumable**: re-running skips tickers already saved in `data/raw/`.
@@ -128,3 +130,20 @@ consistent — a starting point for features, not a standalone strategy. Figures
 
 > ⚠️ Forward returns overlap, so the daily ICs are autocorrelated and the t-stats
 > are optimistic; treat this as exploratory, not a backtest.
+
+## Feature engineering (`11`–`12`, Week 2)
+
+Builds an ML-ready feature matrix (`data/processed/features.parquet`: 601 tickers,
+~1.3M rows, **48 features** + forward-return labels), grounded in **Qlib Alpha158**
+and **Jansen's ML4T**. `src/features/`:
+* `lags.py` — multi-window returns/vol/momentum, candlestick K-bars, price-position,
+  liquidity, price-volume corr (all point-in-time — no look-ahead).
+* `macro.py` — VIX, 10y/13w yields, term spread, market factors, **as-of merged**.
+  Twitter sentiment is honestly omitted (X API paid/closed) with VIX as the fear proxy.
+* `reduce.py` — Pearson pruning (|ρ|>0.95), PCA, t-SNE — **fit on train only**.
+* `dataset.py` — labels + **purged/embargoed** train-test split.
+
+Key finding: short-window returns mean-**revert** (IC<0), but **12-1 month momentum
+is the strongest single signal** (IC +0.021, t=+4.8). PCA compresses 46 features to
+26 components (95% variance) mapping to trend / volatility / market factors. Full
+write-up in `reports/week2_features.md`; leakage discipline proven by unit tests.

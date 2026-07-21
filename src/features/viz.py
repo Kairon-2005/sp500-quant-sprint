@@ -103,3 +103,56 @@ def plot_ic_heatmap(ic_df, out: Path) -> Path:
     fig.savefig(out, dpi=130, bbox_inches="tight")
     plt.close(fig)
     return out
+
+
+# --------------------------------------------------------------------------
+# Week 2 — feature-engineering charts
+# --------------------------------------------------------------------------
+def plot_corr_heatmap(df: pd.DataFrame, cols: list, out: Path) -> Path:
+    """Feature Pearson-correlation heatmap (redundancy map)."""
+    corr = df[cols].corr()
+    fig, ax = plt.subplots(figsize=(min(0.4 * len(cols) + 2, 20),) * 2)
+    sns.heatmap(corr, cmap="RdBu_r", center=0, vmin=-1, vmax=1, square=True,
+                xticklabels=cols, yticklabels=cols, cbar_kws={"shrink": 0.6}, ax=ax)
+    ax.set_title(f"Feature correlation ({len(cols)} features)", fontsize=13, weight="bold")
+    ax.tick_params(labelsize=6)
+    fig.tight_layout()
+    fig.savefig(out, dpi=130, bbox_inches="tight")
+    plt.close(fig)
+    return out
+
+
+def plot_pca_scree(pca, out: Path) -> Path:
+    """PCA explained-variance scree + cumulative curve."""
+    evr = pca.explained_variance_ratio_
+    cum = np.cumsum(evr)
+    x = np.arange(1, len(evr) + 1)
+    fig, ax = plt.subplots(figsize=(9, 5))
+    ax.bar(x, evr, color="#1f77b4", alpha=0.6, label="per component")
+    ax.plot(x, cum, color="#d62728", marker="o", ms=3, label="cumulative")
+    ax.axhline(0.95, color="#333", ls="--", lw=0.8)
+    ax.set_title(f"PCA scree — {len(evr)} components reach 95% variance",
+                 fontsize=13, weight="bold")
+    ax.set_xlabel("principal component")
+    ax.set_ylabel("explained variance ratio")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(out, dpi=130, bbox_inches="tight")
+    plt.close(fig)
+    return out
+
+
+def plot_tsne(emb: pd.DataFrame, color: pd.Series, out: Path,
+              title: str = "t-SNE of feature space") -> Path:
+    """2-D t-SNE scatter coloured by a series (e.g. forward-return sign)."""
+    fig, ax = plt.subplots(figsize=(8, 7))
+    sc = ax.scatter(emb["x"], emb["y"], c=color.to_numpy(), cmap="coolwarm",
+                    s=6, alpha=0.6)
+    ax.set_title(title, fontsize=13, weight="bold")
+    ax.set_xlabel("t-SNE 1")
+    ax.set_ylabel("t-SNE 2")
+    fig.colorbar(sc, ax=ax, shrink=0.7, label="forward 5d return")
+    fig.tight_layout()
+    fig.savefig(out, dpi=130, bbox_inches="tight")
+    plt.close(fig)
+    return out

@@ -24,6 +24,10 @@ tqdm>=4.66
 matplotlib>=3.8
 seaborn>=0.13
 
+# ---- Feature engineering & ML (week 2) ----
+scikit-learn>=1.5   # PCA, t-SNE, StandardScaler
+scipy>=1.13
+
 # ---- Testing ----
 pytest>=8.0
 tabulate>=0.9        # pandas .to_markdown() for report tables

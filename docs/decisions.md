@@ -133,3 +133,31 @@ proof-of-work bot-check (and `pandas_datareader` dropped Stooq), so it can't be 
 from a plain request — and we do **not** bypass bot detection. To run it live, use a
 network where Stooq is reachable or plug a keyed feed (e.g. Tiingo) into the same
 `PriceSource` interface. Framework done; live execution needs a reachable source.
+
+## Week 2 — feature engineering
+
+**D21. Feature set grounded in Alpha158 + Jansen's five families.**
+48 features across momentum/reversal, volatility, microstructure (candlestick
+K-bars), price-position, liquidity, and macro — chosen from Qlib's Alpha158
+formulas and Jansen ML4T Ch.8, not ad hoc. Week-1 indicators (RSI/MACD/BB) are
+reused as features.
+
+**D22. Strict point-in-time features; labels the only forward-looking column.**
+Every feature at t uses data <= t; forward returns are separate labels. Proven by
+a unit test that recomputes features on a truncated series and asserts identical
+values at the boundary — the definitive no-look-ahead check.
+
+**D23. All fitting on the TRAIN split only; purged/embargoed time split.**
+Correlation pruning, StandardScaler and PCA are fit on train, applied to test.
+Train/test are separated by a 20-session embargo so a training row's forward label
+cannot leak into test (Jansen Ch.6 / Lopez de Prado). Directly answers the mentor's
+train-only-fit question.
+
+**D24. Twitter/social sentiment honestly omitted.**
+The X API is paid/closed with no free historical feed, so we do not fabricate a
+sentiment series. VIX is the fear proxy; a real social feed plugs behind
+`add_macro()`. Same integrity stance as the Stooq/reconciliation limit (D20).
+
+**D25. Macro merged with a backward as-of join.**
+VIX/yields/market features are joined by most-recent-value-at-or-before each date,
+so no future macro value leaks into a feature row.
