@@ -6,7 +6,8 @@ Free, reliably-fetchable series via the existing YahooSource:
 
 Merged onto the stock panel with a **backward as-of join**, so each (ticker,
 date) gets the most recent macro value at or before that date — no future macro
-leaks in.
+leaks in. A series that fails to download degrades to NaN features (with a
+warning) instead of crashing the build.
 
 Social sentiment (the spec's "Twitter sentiment") — honest verdict: the X/Twitter
 API has been paid/closed since 2023, so there is no free, reliable *historical*
@@ -16,6 +17,9 @@ added behind the same interface. See ``sentiment_note``.
 """
 from __future__ import annotations
 
+import warnings
+
+import numpy as np
 import pandas as pd
 
 from ..data.sources import YahooSource
@@ -23,17 +27,18 @@ from ..data.sources import YahooSource
 _SERIES = {"^VIX": "vix", "^GSPC": "spx", "^TNX": "tnx10y", "^IRX": "irx13w"}
 
 
-def fetch_macro(cfg) -> pd.DataFrame:
-    """Fetch macro series and derive point-in-time features (indexed by date)."""
-    raw = YahooSource().fetch(list(_SERIES), cfg.start_date, cfg.end_date,
-                              interval=cfg["data"]["interval"], auto_adjust=False)
-    closes = {}
-    for tkr, name in _SERIES.items():
-        df = raw.get(tkr)
-        if df is not None and not df.empty:
-            closes[name] = df.set_index("date")["close"]
-    m = pd.DataFrame(closes).sort_index()
-    m = m.ffill()  # carry the last quote across any missing macro day (past info only)
+def derive_macro_features(closes: pd.DataFrame) -> pd.DataFrame:
+    """Point-in-time macro features from a date-indexed frame of series closes.
+
+    Pure and network-free (unit-testable). Missing series columns are filled
+    with NaN so every derived feature degrades gracefully.
+    """
+    m = closes.sort_index().ffill()  # carry last quote forward (past info only)
+    missing = [n for n in _SERIES.values() if n not in m.columns]
+    if missing:
+        warnings.warn(f"macro series missing, features will be NaN: {missing}",
+                      stacklevel=2)
+        m[missing] = np.nan
 
     feat = pd.DataFrame(index=m.index)
     # Fear: VIX level, daily change, and its rolling 1y z-score.
@@ -50,6 +55,16 @@ def fetch_macro(cfg) -> pd.DataFrame:
     feat["spx_vol_20"] = spx_ret.rolling(20).std()
     feat["spx_ma_gap"] = m["spx"] / m["spx"].rolling(50).mean() - 1.0
     return feat.reset_index().rename(columns={"index": "date"})
+
+
+def fetch_macro(cfg) -> pd.DataFrame:
+    """Fetch the macro series and derive features."""
+    raw = YahooSource().fetch(list(_SERIES), cfg.start_date, cfg.end_date,
+                              interval=cfg["data"]["interval"], auto_adjust=False)
+    closes = {name: df.set_index("date")["close"]
+              for tkr, name in _SERIES.items()
+              if (df := raw.get(tkr)) is not None and not df.empty}
+    return derive_macro_features(pd.DataFrame(closes))
 
 
 def macro_columns() -> list[str]:

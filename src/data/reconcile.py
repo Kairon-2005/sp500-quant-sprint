@@ -22,8 +22,7 @@ from ..utils import get_logger
 from .sources import alt_source
 
 
-def compare_frames(ticker: str, yahoo: pd.DataFrame, alt: pd.DataFrame,
-                   cfg) -> dict:
+def compare_frames(ticker: str, yahoo: pd.DataFrame, alt: pd.DataFrame) -> dict:
     """Pure comparison of two OHLCV frames on their overlapping raw closes.
     Network-free, so unit-testable in isolation."""
     rec = {"ticker": ticker, "overlap_days": 0, "status": "no_alt_source"}
@@ -66,7 +65,7 @@ def reconcile_ticker(ticker: str, yahoo: pd.DataFrame, cfg, source) -> dict:
     """Fetch the alternate source for one ticker and compare it to `yahoo`."""
     alt = source.fetch([ticker], cfg.start_date, cfg.end_date,
                         interval=cfg["data"]["interval"], auto_adjust=False).get(ticker)
-    return compare_frames(ticker, yahoo, alt, cfg)
+    return compare_frames(ticker, yahoo, alt)
 
 
 def reconcile(cfg, tickers: list[str] | None = None, sample: int | None = 60) -> pd.DataFrame:

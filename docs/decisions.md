@@ -161,3 +161,19 @@ sentiment series. VIX is the fear proxy; a real social feed plugs behind
 **D25. Macro merged with a backward as-of join.**
 VIX/yields/market features are joined by most-recent-value-at-or-before each date,
 so no future macro value leaks into a feature row.
+
+**D26. Post-implementation review round (Week 2).**
+An adversarial multi-angle review of the feature-engineering code found and fixed
+four correctness bugs before any model touched the data: (1) `label_up_*`
+fabricated 0 ("down") labels for the ~12k tail rows whose forward return does not
+exist yet — now nullable Int8 NA; (2) the purged split's embargo equalled the max
+label horizon, leaking the last training label's end price onto exactly the first
+test date — embargo now defaults to horizon+1 and lives in config; (3) correlation
+pruning compared against already-dropped features, transitively discarding
+non-redundant signal — now prunes against kept features only; (4) a missing macro
+series crashed the build with KeyError — now degrades to NaN with a warning.
+Structural cleanups: lag-feature names derive from the builder dict (no drift),
+columns attach in one batch (no fragmentation), `ret` has a single definition
+(always recomputed from adj_close), the reduction stage is a testable
+`run_reduction(cfg)` with all knobs in the `features` config section, and the
+corr matrix is computed once. Regression tests cover each fixed bug.

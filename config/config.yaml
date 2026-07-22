@@ -42,6 +42,13 @@ cleaning:
   sustained_window: 21        # a series "really trades" once N forward bars are all real
   winsor_mad_k: 3             # winsorise return feature at median +/- k*robust-MAD
 
+features:
+  train_frac: 0.7             # time-ordered train share for the purged split
+  embargo_days: 21            # purge gap; MUST exceed the longest label horizon (20d)
+  corr_threshold: 0.95        # prune features with |Pearson r| above this vs a kept feature
+  pca_var_target: 0.95        # keep principal components up to this explained variance
+  tsne_sample: 2500           # rows sampled for the t-SNE visualisation
+
 storage:
   format: parquet
   compression: zstd

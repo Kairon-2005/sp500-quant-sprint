@@ -4,6 +4,7 @@ import _bootstrap  # noqa: F401
 
 from src.config import load_config
 from src.features.dataset import build_dataset, feature_list, label_list
+from src.features.lags import RET_WINDOWS
 from src.features.macro import sentiment_note
 from src.features.signals import ic_summary
 
@@ -20,7 +21,7 @@ def main() -> None:
     print(f"\nNote: {sentiment_note()}")
 
     # 2.1 analysis — short-term momentum/reversal vs long-term trend, via IC.
-    windows = ["roc_1", "roc_5", "roc_10", "roc_20", "roc_60", "mom_12_1"]
+    windows = [f"roc_{w}" for w in RET_WINDOWS] + ["mom_12_1"]
     ic = ic_summary(matrix, signals=windows, horizons=(5, 20))
     print("\n=== Return-window predictive power (mean cross-sectional IC) ===")
     print(ic.to_string(index=False))

@@ -108,13 +108,14 @@ def plot_ic_heatmap(ic_df, out: Path) -> Path:
 # --------------------------------------------------------------------------
 # Week 2 — feature-engineering charts
 # --------------------------------------------------------------------------
-def plot_corr_heatmap(df: pd.DataFrame, cols: list, out: Path) -> Path:
-    """Feature Pearson-correlation heatmap (redundancy map)."""
-    corr = df[cols].corr()
-    fig, ax = plt.subplots(figsize=(min(0.4 * len(cols) + 2, 20),) * 2)
+def plot_corr_heatmap(corr: pd.DataFrame, out: Path) -> Path:
+    """Feature Pearson-correlation heatmap from a precomputed corr matrix."""
+    n = len(corr)
+    size = min(0.4 * n + 2, 20)
+    fig, ax = plt.subplots(figsize=(size, size))
     sns.heatmap(corr, cmap="RdBu_r", center=0, vmin=-1, vmax=1, square=True,
-                xticklabels=cols, yticklabels=cols, cbar_kws={"shrink": 0.6}, ax=ax)
-    ax.set_title(f"Feature correlation ({len(cols)} features)", fontsize=13, weight="bold")
+                cbar_kws={"shrink": 0.6}, ax=ax)
+    ax.set_title(f"Feature correlation ({n} features)", fontsize=13, weight="bold")
     ax.tick_params(labelsize=6)
     fig.tight_layout()
     fig.savefig(out, dpi=130, bbox_inches="tight")
